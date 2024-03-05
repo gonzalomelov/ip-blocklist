@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ip-blocklist
+spec:
+  selector:
+    app: ip-blocklist
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: LoadBalancer
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ip-blocklist
+  labels:
+    app: ip-blocklist
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ip-blocklist
+  template:
+    metadata:
+      labels:
+        app: ip-blocklist
+    spec:
+      containers:
+        - name: image
+          image: gonzalomelov17/ip-blocklist:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080

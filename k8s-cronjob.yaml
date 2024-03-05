@@ -1,0 +1,72 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: restart-deployment
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restart-deployment
+rules:
+  - apiGroups: ["apps", "extensions"]
+    resources: ["deployments"]
+    resourceNames: ["ip-blocklist"]
+    verbs: ["get", "patch", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restart-deployment
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restart-deployment
+subjects:
+  - kind: ServiceAccount
+    name: restart-deployment
+
+--- 
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: restart-deployment
+spec:
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  concurrencyPolicy: Forbid
+  schedule: '0 0 * * *'
+  jobTemplate:
+    spec:
+      backoffLimit: 2 
+      activeDeadlineSeconds: 900
+      template:
+        spec:
+          serviceAccountName: restart-deployment
+          restartPolicy: Never
+          initContainers:
+            - name: kaniko-demo
+              image: gcr.io/kaniko-project/executor:latest
+              args: ["--context=git://$TOKEN@github.com/gonzalomelov/ip-blocklist.git#refs/heads/main",
+                      "--destination=gonzalomelov17/ip-blocklist:latest",
+                      "--dockerfile=Dockerfile"]
+              volumeMounts:
+                - name: kaniko-secret
+                  mountPath: /kaniko/.docker
+          volumes:
+            - name: kaniko-secret
+              secret:
+                secretName: regcred
+                items:
+                  - key: .dockerconfigjson
+                    path: config.json
+          containers:
+            - name: kubectl
+              image: bitnami/kubectl 
+              command:
+                - bash
+                - -c
+                - >-
+                  kubectl rollout restart deployment.apps/ip-blocklist &&
+                  kubectl rollout status deployment.apps/ip-blocklist

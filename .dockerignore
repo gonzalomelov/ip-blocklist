@@ -1,0 +1,12 @@
+**/.git
+.env
+.dockerignore
+spec.yaml
+target/
+deploy/
+tests/
+Dockerfile
+k8s-ip-blocklist.yml
+k8s-cronjob.yml
+scripts/
+migrations/
